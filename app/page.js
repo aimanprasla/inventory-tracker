@@ -1,67 +1,74 @@
 'use client'
-import {useState, useEffect} from 'react'
-import Image from "next/image";
-import {firestore} from '@/firebase'
-import {Box, Button, Modal, Stack, TextField, Typography} from '@mui/material'
+import { useState, useEffect } from 'react';
+import { Box, Button, Modal, Stack, TextField, Typography } from '@mui/material';
+import { firestore } from '@/firebase';
 import { collection, getDocs, query, deleteDoc, getDoc, doc, setDoc } from 'firebase/firestore';
 
 export default function Home() {
-  const [inventory, setInventory] = useState([])
-  const [open, setOpen] = useState(false)
-  const [itemName, setItemName] = useState('')
+  const [inventory, setInventory] = useState([]);
+  const [open, setOpen] = useState(false);
+  const [itemName, setItemName] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const updateInventory = async () => {
-    const snapshot = query(collection(firestore, 'inventory'))
-    const docs = await getDocs(snapshot)
-    const inventoryList = []
+    const snapshot = query(collection(firestore, 'inventory'));
+    const docs = await getDocs(snapshot);
+    const inventoryList = [];
     docs.forEach((doc) => {
       inventoryList.push({
         name: doc.id,
         ...doc.data(),
-      })
-    })
-    setInventory(inventoryList)
-    console.log(inventoryList)
-  }
+      });
+    });
+    setInventory(inventoryList);
+    console.log('Inventory List:', inventoryList);
+  };
 
-  const removeItem = async(item) =>{
-    const docRef = doc(collection(firestore, 'inventory'), item)
-    const docSnap = await getDoc(docRef)
+  const removeItem = async (item) => {
+    const docRef = doc(collection(firestore, 'inventory'), item);
+    const docSnap = await getDoc(docRef);
 
-    if(docSnap.exists()){
-      const {quantity} = docSnap.data()
-      if (quantity === 1){
-        await deleteDoc(docRef)
+    if (docSnap.exists()) {
+      const { quantity } = docSnap.data();
+      if (quantity === 1) {
+        await deleteDoc(docRef);
+      } else {
+        await setDoc(docRef, { quantity: quantity - 1 });
       }
-      else{
-        await setDoc(docRef, {quantity: quantity - 1})
-      }
     }
-    await updateInventory()
-  }
+    await updateInventory();
+  };
 
-  const addItem = async(item) =>{
-    const docRef = doc(collection(firestore, 'inventory'), item)
-    const docSnap = await getDoc(docRef)
+  const addItem = async (item) => {
+    const docRef = doc(collection(firestore, 'inventory'), item);
+    const docSnap = await getDoc(docRef);
 
-    if(docSnap.exists()){
-      const {quantity} = docSnap.data()
-      await setDoc(docRef, {quantity: quantity + 1})
+    if (docSnap.exists()) {
+      const { quantity } = docSnap.data();
+      await setDoc(docRef, { quantity: quantity + 1 });
+    } else {
+      await setDoc(docRef, { quantity: 1 });
     }
-    else{
-      await setDoc(docRef, {quantity: 1})
-    }
-    await updateInventory()
-  }
+    await updateInventory();
+  };
 
   useEffect(() => {
-    updateInventory()
-  }, [])
+    updateInventory();
+  }, []);
 
-  const handleOpen = () => setOpen(true)
-  const handleClose = () => setOpen(false)
-  
-  return( 
+  const handleOpen = () => setOpen(true);
+  const handleClose = () => setOpen(false);
+
+  const filteredInventory = inventory.filter(item => 
+    item.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  useEffect(() => {
+    console.log('Search Query:', searchQuery);
+    console.log('Filtered Inventory:', filteredInventory);
+  }, [searchQuery, inventory]);
+
+  return (
     <Box 
       width="100vw" 
       height="100vh"
@@ -76,7 +83,7 @@ export default function Home() {
           position="absolute"
           top="50%"
           left="50%"
-          sx={{transform: 'translate(-50%,-50%)',}}
+          sx={{ transform: 'translate(-50%,-50%)' }}
           width={400}
           bgcolor="white"
           border="2px solid #000"
@@ -93,15 +100,15 @@ export default function Home() {
               fullWidth
               value={itemName}
               onChange={(e) => {
-                setItemName(e.target.value)
+                setItemName(e.target.value);
               }}  
-            ></TextField>
+            />
             <Button
               variant="outlined"                
               onClick={() => {
-                addItem(itemName)
-                setItemName('')
-                handleClose()
+                addItem(itemName);
+                setItemName('');
+                handleClose();
               }}
             >
               Add
@@ -111,12 +118,16 @@ export default function Home() {
       </Modal>
       <Button 
         variant="contained" 
-        onClick={() => {
-          handleOpen()
-        }}
+        onClick={handleOpen}
       >
         Add New Item
       </Button>
+      <TextField 
+        variant="outlined" 
+        placeholder="Search Items" 
+        value={searchQuery} 
+        onChange={(e) => setSearchQuery(e.target.value)} 
+      />
       <Box border="1px solid #333">
         <Box 
           width="800px" 
@@ -130,9 +141,8 @@ export default function Home() {
             Inventory Items
           </Typography>
         </Box>
-      <Stack width="800px" height="300px" spacing={2} overflow="auto">
-        {
-          inventory.map(({name, quantity}) => (
+        <Stack width="800px" height="300px" spacing={2} overflow="auto">
+          {filteredInventory.map(({ name, quantity }) => (
             <Box 
               key={name} 
               width="100%"
@@ -158,23 +168,17 @@ export default function Home() {
                 {quantity}
               </Typography>
               <Stack direction="row" spacing={2}>
-                <Button variant="contained" onClick={() => {
-                  addItem(name)
-                }}
-                >
+                <Button variant="contained" onClick={() => addItem(name)}>
                   Add
                 </Button>
-                <Button variant="contained" onClick={() => {
-                  removeItem(name)
-                }}
-                >
+                <Button variant="contained" onClick={() => removeItem(name)}>
                   Remove
                 </Button>
               </Stack>
             </Box>
-        ))}
-      </Stack>
+          ))}
+        </Stack>
       </Box>
     </Box> 
-  )
+  );
 }
